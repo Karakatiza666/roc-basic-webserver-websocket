@@ -17,24 +17,29 @@ import bws_ws.WsClient
 ask! : Str => Try(Ws.Message, WsClient.Error)
 ask! = |text| {
 	opened = WsClient.connect!({ url: "ws://127.0.0.1:9001/", protocols: ["echo"] })?
-	(opened.conn.send!)(Text(text))?
-	reply = (opened.conn.receive!)({})?
-	_ = (opened.conn.close!)(1000, "")?
+	sent = opened.conn.send!(Text(text))?
+	(conn, reply) = sent.receive!()?
+	_ = Ws.close_and_wait!(WsClient.ops, conn, 1000, "")?
 	Ok(reply)
 }
 ```
 
 The app must name exactly the platform URL above (one platform per build).
+Each call returns the updated connection: keep using the newest one.
 
 ## API
 
 - `WsClient.connect! : Ws.Request => Try(Ws.Opened(WsClient.Conn), WsClient.Error)`
-- `WsClient.Conn = Client.Conn(WsClient.Errors)`: `send!`, `receive!`,
-  `close!`, `ping!`, `pong!`, `send_frame!`, `receive_frame!` (`Ws.Raw`).
+- `WsClient.Conn = Client.Conn(WsClient.Link, WsClient.Errors)`, with the methods
+  `send!`, `receive!`, `poll!`, `close!`, `ping!`, `pong!`, `send_frame!`,
+  `receive_frame!`.
+- `WsClient.ops : Client.Ops(WsClient.Link, WsClient.Errors)`, the same as a
+  record (`Ws.Raw` and `Ws.Poll`), for code generic over features such as
+  `Ws.close_and_wait!`, `Ws.drive!`, `Ws.messages`.
 - `WsClient.Errors = [Tcp(Str), Connect(Str), Entropy(Str)]`, the platform's
-  tags; `WsClient.Error` is the whole closed error union.
+  tags; `WsClient.Error = Client.Error(WsClient.Errors)` is the whole error union.
 - `WsClient.dial`, the `Ws.Dial` feature record.
-- `WsClient.link!`, `WsClient.random_bytes!`: the parts, for other drivers.
+- `WsClient.link!`, `WsClient.link_ops`, `WsClient.random_bytes!`: the parts.
 
 ## Limitations
 
@@ -43,9 +48,9 @@ The app must name exactly the platform URL above (one platform per build).
 - **Within one handler.** A connection lives inside one `respond!` call or one
   SSE transition; nothing keeps it across requests.
 - **`ws://` only.** The platform's Tcp has no TLS. `wss://` is `Refused`.
-- **30 s deadline per read.** A `receive!` with no frame start for 30 s returns
-  `Err(TimedOut)`; the connection stays usable and the next `receive!` continues.
-  Inside a frame or a fragmented message the client keeps waiting.
+- **30 s deadline per read.** `receive!` keeps waiting through it. `poll!`
+  returns `Idle` when 30 s pass with no message, and the connection keeps every
+  byte read so far, so nothing is lost.
 - **`StreamBusy`.** Two handlers using one connection at once get
   `Tcp("StreamBusy")`.
 - At most 64 Tcp streams and 64 file readers open at once (each connection holds
@@ -68,7 +73,7 @@ ROC=/path/to/roc scripts/all_tests.sh --e2e    # also a live run against tests/e
 ```
 
 `examples/client.roc` serves `/echo` (the Python stdlib test server in `tests/`),
-`/slow` (the 30 s timeout) and `/surreal` (a JSON `ping` RPC to SurrealDB at
+`/slow` (`poll!` across the 30 s deadline) and `/surreal` (a JSON `ping` RPC to SurrealDB at
 `ws://127.0.0.1:8000/rpc`).
 
 `roc bundle` refuses this package while it depends on roc-websocket by path;

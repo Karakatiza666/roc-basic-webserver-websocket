@@ -3,7 +3,7 @@
 ##   GET /echo?port=9001  talks to an echo server on 127.0.0.1 (the test
 ##                        server in the repo README) and reports each step.
 ##   GET /slow            asks the echo server on 9001 to wait 35 s: the first
-##                        `receive!` times out after 30 s, the second gets it.
+##                        `poll!` gives Idle after 30 s, the second the reply.
 ##   GET /surreal         sends a JSON `ping` RPC to SurrealDB at
 ##                        ws://127.0.0.1:8000/rpc and returns the reply.
 app [Context, program] {
@@ -61,71 +61,78 @@ show = |message| match message {
 echo! : Str => Try(Str, WsClient.Error)
 echo! = |port| {
 	opened = WsClient.connect!({ url: "ws://127.0.0.1:${if (port == "") "9001" else port}/chat?room=1", protocols: ["chat", "echo"] })?
-	conn = opened.conn
 	var $lines = ["connected, subprotocol \"${opened.protocol}\""]
 
-	(conn.send!)(Text("hello from basic-webserver"))?
-	$lines = $lines.append("echo: ${show((conn.receive!)({})?)}")
+	# Each call returns the updated connection.
+	exchange! = |conn, message| {
+		sent = conn.send!(message)?
+		sent.receive!()
+	}
 
-	(conn.send!)(Binary([1, 2, 3, 250]))?
-	$lines = $lines.append("echo: ${show((conn.receive!)({})?)}")
-
-	(conn.send!)(Text("fragment-me"))?
-	$lines = $lines.append("assembled: ${show((conn.receive!)({})?)}")
-
-	(conn.send!)(Text("ping-me"))?
-	$lines = $lines.append("after a server ping: ${show((conn.receive!)({})?)}")
-
-	(conn.send!)(Text("big:70000"))?
-	$lines = $lines.append("big: ${show((conn.receive!)({})?)}")
+	(c1, m1) = exchange!(opened.conn, Text("hello from basic-webserver"))?
+	$lines = $lines.append("echo: ${show(m1)}")
+	(c2, m2) = exchange!(c1, Binary([1, 2, 3, 250]))?
+	$lines = $lines.append("echo: ${show(m2)}")
+	(c3, m3) = exchange!(c2, Text("fragment-me"))?
+	$lines = $lines.append("assembled: ${show(m3)}")
+	(c4, m4) = exchange!(c3, Text("ping-me"))?
+	$lines = $lines.append("after a server ping: ${show(m4)}")
+	(c5, m5) = exchange!(c4, Text("big:70000"))?
+	$lines = $lines.append("big: ${show(m5)}")
 
 	# Our own fragmented message, sent frame by frame.
-	(conn.send_frame!)({ fin: Bool.False, opcode: Text, payload: "sent in ".to_utf8() })?
-	(conn.send_frame!)({ fin: Bool.True, opcode: Continuation, payload: "two frames".to_utf8() })?
-	$lines = $lines.append("echo of fragments: ${show((conn.receive!)({})?)}")
+	c6 = c5.send_frame!({ fin: Bool.False, opcode: Text, payload: "sent in ".to_utf8() })?
+	c7 = c6.send_frame!({ fin: Bool.True, opcode: Continuation, payload: "two frames".to_utf8() })?
+	(c8, m6) = c7.receive!()?
+	$lines = $lines.append("echo of fragments: ${show(m6)}")
 
-	(conn.ping!)("roc".to_utf8())?
-	pong = (conn.receive_frame!)({})?
+	c9 = c8.ping!("roc".to_utf8())?
+	(c10, pong) = c9.receive_frame!()?
 	$lines = $lines.append("pong frame: ${Str.inspect(pong.opcode)} \"${Str.from_utf8(pong.payload) ?? "?"}\"")
 
-	closure = (conn.close!)(1000, "done")?
-	$lines = $lines.append("closed: ${Str.inspect(closure)}")
+	# close! starts the close; receive! finishes it.
+	c11 = c10.close!(1000, "done")?
+	closed = match c11.receive!() {
+		Err(Closed(c)) => "closed: ${Str.inspect(c)}"
+		Ok((_, m)) => "unexpected message ${show(m)}"
+		Err(other) => return Err(other)
+	}
+	$lines = $lines.append(closed)
 
 	# A second connection, closed by the server.
 	second = WsClient.connect!({ url: "ws://127.0.0.1:${if (port == "") "9001" else port}/" })?
-	(second.conn.send!)(Text("close-me"))?
-	ended = match (second.conn.receive!)({}) {
+	s1 = second.conn.send!(Text("close-me"))?
+	ended = match s1.receive!() {
 		Err(Closed(c)) => "server closed: ${Str.inspect(c)}"
-		Ok(m) => "unexpected message ${show(m)}"
+		Ok((_, m)) => "unexpected message ${show(m)}"
 		Err(other) => return Err(other)
 	}
 	$lines = $lines.append(ended)
 	Ok("${Str.join_with($lines, "\n")}\n")
 }
 
-## A JSON `ping` RPC to SurrealDB.
+## A JSON `ping` RPC to SurrealDB, through the generic helpers of `Ws` over
+## the adapter's operations record.
 surreal! : {} => Try(Str, WsClient.Error)
 surreal! = |{}| {
 	opened = WsClient.connect!({ url: "ws://127.0.0.1:8000/rpc", protocols: ["json"] })?
-	(opened.conn.send!)(Text("{\"id\":1,\"method\":\"ping\"}"))?
-	reply = (opened.conn.receive!)({})?
-	(opened.conn.send!)(Text("{\"id\":2,\"method\":\"version\"}"))?
-	version = (opened.conn.receive!)({})?
-	closure = (opened.conn.close!)(1000, "")?
+	ops = WsClient.ops
+	c1 = (ops.send!)(opened.conn, Text("{\"id\":1,\"method\":\"ping\"}"))?
+	(c2, reply) = (ops.receive!)(c1)?
+	c3 = (ops.send!)(c2, Text("{\"id\":2,\"method\":\"version\"}"))?
+	(c4, version) = (ops.receive!)(c3)?
+	closure = Ws.close_and_wait!(ops, c4, 1000, "")?
 	Ok("subprotocol \"${opened.protocol}\"\nping reply: ${show(reply)}\nversion reply: ${show(version)}\nclosed: ${Str.inspect(closure)}\n")
 }
 
-## A reply after the platform's 30 s read deadline.
+## A reply after the platform's 30 s read deadline: `poll!` gives `Idle`, the
+## connection keeps its state, and the next `poll!` gets the reply.
 slow! : {} => Try(Str, WsClient.Error)
 slow! = |{}| {
 	opened = WsClient.connect!({ url: "ws://127.0.0.1:9001/" })?
-	(opened.conn.send!)(Text("sleep:35"))?
-	first = match (opened.conn.receive!)({}) {
-		Err(TimedOut) => "first receive: TimedOut"
-		Ok(m) => "first receive: ${show(m)}"
-		Err(other) => return Err(other)
-	}
-	second = (opened.conn.receive!)({})?
-	_ = (opened.conn.close!)(1000, "")?
-	Ok("${first}\nsecond receive: ${show(second)}\n")
+	c1 = opened.conn.send!(Text("sleep:35"))?
+	(c2, first) = c1.poll!()?
+	(c3, second) = c2.poll!()?
+	_ = Ws.close_and_wait!(WsClient.ops, c3, 1000, "")?
+	Ok("first poll: ${Str.inspect(first)}\nsecond poll: ${Str.inspect(second)}\n")
 }

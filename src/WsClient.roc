@@ -13,10 +13,9 @@ import ws.Handshake
 ## server and no way to keep a connection across requests.
 ##
 ## Limits from the platform:
-## - Every Tcp read has a 30 s host deadline. A `receive!` that sees no frame
-##   start within 30 s returns `Err(TimedOut)` and the connection stays usable;
-##   inside a frame or a fragmented message the client keeps waiting, 30 s at a
-##   time.
+## - Every Tcp read has a 30 s host deadline. `receive!` keeps waiting across
+##   it; `poll!` returns `Idle` when it passes with no message. The connection
+##   keeps every byte read, so a deadline never loses data.
 ## - One connection used by two handlers at once gives `Tcp("StreamBusy")`.
 ## - A read materializes at most 8 MiB, so a frame over 8 MiB arrives in
 ##   several reads (handled), and at most 64 Tcp streams are open at once.
@@ -30,18 +29,24 @@ WsClient :: [].{
 	## and a failure to read randomness.
 	Errors : [Tcp(Str), Connect(Str), Entropy(Str)]
 
-	## A connection: the core, `ping!`, `pong!`, and frames.
-	Conn : Client.Conn(WsClient.Errors)
+	## The link a connection runs over: the Tcp stream and the randomness
+	## reader.
+	Link : { tcp : Tcp.Connection, entropy : File.Reader }
+
+	## A connection. Its methods: `send!`, `receive!`, `poll!`, `close!`,
+	## `ping!`, `pong!`, `send_frame!`, `receive_frame!`; each returns the
+	## updated connection.
+	Conn : Client.Conn(WsClient.Link, WsClient.Errors)
 
 	## Every error of a connection and of `connect!`.
-	Error : [Closed(Ws.Closure), TimedOut, Refused(Str), InvalidClose(Str), ControlTooLong(U64), BadFrame(Str), Tcp(Str), Connect(Str), Entropy(Str)]
+	Error : Client.Error(WsClient.Errors)
 
 	## Connect to `request.url` (`ws://host[:port]/path`) and do the handshake.
 	##
 	## ```roc
 	## opened = WsClient.connect!({ url: "ws://127.0.0.1:9001/", protocols: ["echo"] })?
-	## (opened.conn.send!)(Text("hi"))?
-	## reply = (opened.conn.receive!)({})?
+	## conn = opened.conn.send!(Text("hi"))?
+	## (conn2, reply) = conn.receive!()?
 	## ```
 	connect! : Ws.Request => Try(Ws.Opened(WsClient.Conn), WsClient.Error)
 	connect! = |request| {
@@ -52,23 +57,43 @@ WsClient :: [].{
 		host = url.host.drop_prefix("[").drop_suffix("]")
 		tcp = Tcp.connect!(host, url.port).map_err(|err| Connect(Tcp.connect_err_to_str(err)))?
 		link = WsClient.link!(tcp)?
-		Client.open!(link, request)
+		Client.open!(WsClient.link_ops, link, request)
 	}
 
-	## The feature record of this adapter for code generic over `Ws.Dial`.
+	## The operations as a record (`Ws.Raw` and `Ws.Poll`), for code generic
+	## over features.
+	ops : Client.Ops(WsClient.Link, WsClient.Errors)
+	ops = Client.ops({})
+
+	## The `Ws.Dial` feature record.
 	dial : Ws.Dial(WsClient.Conn, Client.Errors(WsClient.Errors), {})
 	dial = { connect!: WsClient.connect! }
 
-	## The byte stream and randomness `Client.open!` needs, over a connected
-	## Tcp stream. Opens one `/dev/urandom` reader for the connection.
-	link! : Tcp.Connection => Try(Client.Link(WsClient.Errors), WsClient.Error)
+	## The byte stream and randomness `Client.open!` needs.
+	link_ops : Client.Link(WsClient.Link, WsClient.Errors)
+	link_ops = {
+		write_bytes!: |link, bytes| {
+			link.tcp.write!(bytes).map_err(tcp_error)?
+			Ok(link)
+		},
+		read_up_to!: |link, n| match link.tcp.read_up_to!(n) {
+			Ok([]) => Ok((link, End))
+			Ok(bytes) => Ok((link, Data(bytes)))
+			Err(TcpReadErr(TimedOut)) => Ok((link, TimedOut))
+			Err(TcpReadErr(e)) => Err(Tcp(Tcp.stream_err_to_str(e)))
+		},
+		random_bytes!: |link, n| {
+			bytes = WsClient.random_bytes!(link.entropy, n)?
+			Ok((link, bytes))
+		},
+	}
+
+	## The link over a connected Tcp stream. Opens one `/dev/urandom` reader
+	## for the connection.
+	link! : Tcp.Connection => Try(WsClient.Link, WsClient.Error)
 	link! = |tcp| {
 		entropy = File.open_reader_with_capacity!(Path.utf8("/dev/urandom"), 256).map_err(|err| Entropy(Str.inspect(err)))?
-		Ok({
-			write_bytes!: |bytes| tcp.write!(bytes).map_err(tcp_error),
-			read_up_to!: |n| tcp.read_up_to!(n).map_err(tcp_error),
-			random_bytes!: |n| random_bytes!(entropy, n),
-		})
+		Ok({ tcp, entropy })
 	}
 
 	## `n` unpredictable bytes from `/dev/urandom`.
@@ -96,9 +121,5 @@ WsClient :: [].{
 	}
 }
 
-tcp_error : [TcpReadErr(Tcp.StreamErr([])), TcpWriteErr(Tcp.StreamErr([])), TcpUnexpectedEOF] -> WsClient.Error
-tcp_error = |err| match err {
-	TcpReadErr(TimedOut) | TcpWriteErr(TimedOut) => TimedOut
-	TcpReadErr(e) | TcpWriteErr(e) => Tcp(Tcp.stream_err_to_str(e))
-	TcpUnexpectedEOF => Tcp("unexpected end of stream")
-}
+tcp_error : [TcpWriteErr(Tcp.StreamErr([]))] -> WsClient.Error
+tcp_error = |TcpWriteErr(e)| Tcp(Tcp.stream_err_to_str(e))
