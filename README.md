@@ -1,14 +1,14 @@
 # roc-basic-webserver-websocket
 
 A WebSocket client for [basic-webserver](https://github.com/roc-lang/basic-webserver)
-0.19.0, built on [roc-websocket](../roc-websocket). Use it inside a request
+0.19.0, built on [roc-websocket](https://github.com/Karakatiza666/roc-websocket). Use it inside a request
 handler to talk to a WebSocket server and answer over HTTP.
 
 ```roc
 app [Context, program] {
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "../roc-websocket/src/main.roc",
-	bws_ws: "../roc-basic-webserver-websocket/src/main.roc",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.1/4i6sgv5VVbr9xet5sWkRWMYa4H3dMUJSzWrMhRXsFTgn.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/<hash>.tar.zst",
 }
 
 import ws.Ws
@@ -76,5 +76,10 @@ ROC=/path/to/roc scripts/all_tests.sh --e2e    # also a live run against tests/e
 `/slow` (`poll!` across the 30 s deadline) and `/surreal` (a JSON `ping` RPC to SurrealDB at
 `ws://127.0.0.1:8000/rpc`).
 
-`roc bundle` refuses this package while it depends on roc-websocket by path;
-release roc-websocket first and use its URL.
+The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.1` and in the
+release notes of each [release](https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases).
+
+```sh
+ROC=/path/to/roc scripts/bundle.sh 0.0.1  # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/test_bundle.sh   # checks the examples against the bundle
+```
