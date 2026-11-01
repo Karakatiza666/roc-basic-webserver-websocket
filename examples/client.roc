@@ -10,7 +10,7 @@ app [Context, program] {
 	bws_ws: "../src/main.roc",
 	http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.1/4i6sgv5VVbr9xet5sWkRWMYa4H3dMUJSzWrMhRXsFTgn.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
 }
 
 import pf.Server
@@ -61,7 +61,12 @@ show = |message| match message {
 echo! : Str => Try(Str, WsClient.Error)
 echo! = |port| {
 	opened = WsClient.connect!({ url: "ws://127.0.0.1:${if (port == "") "9001" else port}/chat?room=1", protocols: ["chat", "echo"] })?
-	var $lines = ["connected, subprotocol \"${opened.protocol}\""]
+	extensions =
+		match opened.extensions {
+			Reported(list) => "${list.len().to_str()} reported"
+			NotReported => "not reported"
+		}
+	var $lines = ["connected, subprotocol \"${opened.protocol}\", extensions ${extensions}"]
 
 	# Each call returns the updated connection.
 	exchange! = |conn, message| {
@@ -92,6 +97,12 @@ echo! = |port| {
 
 	# close! starts the close; receive! finishes it.
 	c11 = c10.close!(1000, "done")?
+	# Until the close completes, a send gives Closing.
+	closing = match c11.send!(Text("late")) {
+		Err(Closing) => "send while closing: Closing"
+		_ => "send while closing: unexpected"
+	}
+	$lines = $lines.append(closing)
 	closed = match c11.receive!() {
 		Err(Closed(c)) => "closed: ${Str.inspect(c)}"
 		Ok((_, m)) => "unexpected message ${show(m)}"

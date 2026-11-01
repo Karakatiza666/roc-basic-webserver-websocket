@@ -7,8 +7,8 @@ handler to talk to a WebSocket server and answer over HTTP.
 ```roc
 app [Context, program] {
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.1/4i6sgv5VVbr9xet5sWkRWMYa4H3dMUJSzWrMhRXsFTgn.tar.zst",
-	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/<hash>.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.2/<hash>.tar.zst",
 }
 
 import ws.Ws
@@ -41,6 +41,12 @@ Each call returns the updated connection: keep using the newest one.
 - `WsClient.dial`, the `Ws.Dial` feature record.
 - `WsClient.link!`, `WsClient.link_ops`, `WsClient.random_bytes!`: the parts.
 
+Every error row is `[Closed(Ws.Closure), Closing, ..e]`: `Closed` once the
+connection has ended, `Closing` from `send!` and the other senders after
+`close!` while the closing handshake is under way (`receive!` still delivers the
+messages on their way, then ends with `Closed`). `opened.extensions` is
+`Reported(list)` (this client gives `Reported([])`) or `NotReported`.
+
 ## Limitations
 
 - **Client only.** basic-webserver cannot answer an upgrade (it refuses 1xx
@@ -65,6 +71,19 @@ files). It drops each newline, gathers at least 48 bytes (each uniform over the
 output bytes. The output is as good as the kernel's CSPRNG for masks and keys;
 it needs a Unix `/dev/urandom` (Linux, macOS), not Windows.
 
+## Changes
+
+### 0.0.2
+
+Depends on roc-websocket 0.0.2. Its error rows gain the shared `Closing` tag
+(`WsClient.Error` includes it), `send!` after `close!` gives `Closing` rather
+than `Closed`, and `Opened.extensions` is `[Reported(List(Str)), NotReported]`.
+The adapter's own code needed no change; the example and README show both.
+
+### 0.0.1
+
+The first release: a client over `pf.Tcp`.
+
 ## Checks
 
 ```sh
@@ -76,10 +95,10 @@ ROC=/path/to/roc scripts/all_tests.sh --e2e    # also a live run against tests/e
 `/slow` (`poll!` across the 30 s deadline) and `/surreal` (a JSON `ping` RPC to SurrealDB at
 `ws://127.0.0.1:8000/rpc`).
 
-The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.1` and in the
+The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.2` and in the
 release notes of each [release](https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases).
 
 ```sh
-ROC=/path/to/roc scripts/bundle.sh 0.0.1  # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/bundle.sh 0.0.2  # dist/<hash>.tar.zst and its release URL
 ROC=/path/to/roc scripts/test_bundle.sh   # checks the examples against the bundle
 ```
