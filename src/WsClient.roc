@@ -14,7 +14,7 @@ import ws.Handshake
 ##
 ## Limits from the platform:
 ## - Every Tcp read has a 30 s host deadline. `receive!` keeps waiting across
-##   it; `poll!` returns `Idle` when it passes with no message. The connection
+##   it; `poll!` returns `TimedOut` when it passes with no message. The connection
 ##   keeps every byte read, so a deadline never loses data.
 ## - One connection used by two handlers at once gives `Tcp("StreamBusy")`.
 ## - A read materializes at most 8 MiB, so a frame over 8 MiB arrives in
@@ -48,7 +48,7 @@ WsClient :: [].{
 	## conn = opened.conn.send!(Text("hi"))?
 	## (conn2, reply) = conn.receive!()?
 	## ```
-	connect! : Ws.Request => Try(Ws.Opened(WsClient.Conn), WsClient.Error)
+	connect! : Ws.ConnectRequest => Try(Ws.Opened(WsClient.Conn), WsClient.Error)
 	connect! = |request| {
 		url = Handshake.parse_url(request.url).map_err(|BadUrl(why)| Refused(why))?
 		if url.secure {
@@ -57,7 +57,7 @@ WsClient :: [].{
 		host = url.host.drop_prefix("[").drop_suffix("]")
 		tcp = Tcp.connect!(host, url.port).map_err(|err| Connect(Tcp.connect_err_to_str(err)))?
 		link = WsClient.link!(tcp)?
-		Client.open!(WsClient.link_ops, link, request)
+		Client.open!(WsClient.transport, link, request)
 	}
 
 	## The operations as a record (`Ws.Raw` and `Ws.Poll`), for code generic
@@ -65,13 +65,13 @@ WsClient :: [].{
 	ops : Client.Ops(WsClient.Link, WsClient.Errors)
 	ops = Client.ops({})
 
-	## The `Ws.Dial` feature record.
-	dial : Ws.Dial(WsClient.Conn, Client.Errors(WsClient.Errors), {})
+	## The `Ws.Connect` feature record.
+	dial : Ws.Connect(WsClient.Conn, Client.Errors(WsClient.Errors), {})
 	dial = { connect!: WsClient.connect! }
 
 	## The byte stream and randomness `Client.open!` needs.
-	link_ops : Client.Link(WsClient.Link, WsClient.Errors)
-	link_ops = {
+	transport : Client.Transport(WsClient.Link, WsClient.Errors)
+	transport = {
 		write_bytes!: |link, bytes| {
 			link.tcp.write!(bytes).map_err(tcp_error)?
 			Ok(link)

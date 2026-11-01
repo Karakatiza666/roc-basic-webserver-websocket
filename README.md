@@ -7,8 +7,8 @@ handler to talk to a WebSocket server and answer over HTTP.
 ```roc
 app [Context, program] {
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
-	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.2/<hash>.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/5J8bFZVEmYbkWqq5YUQTeGGwHPq59vWnhm3rgtrfFRdv.tar.zst",
 }
 
 import ws.Ws
@@ -29,7 +29,7 @@ Each call returns the updated connection: keep using the newest one.
 
 ## API
 
-- `WsClient.connect! : Ws.Request => Try(Ws.Opened(WsClient.Conn), WsClient.Error)`
+- `WsClient.connect! : Ws.ConnectRequest => Try(Ws.Opened(WsClient.Conn), WsClient.Error)`
 - `WsClient.Conn = Client.Conn(WsClient.Link, WsClient.Errors)`, with the methods
   `send!`, `receive!`, `poll!`, `close!`, `ping!`, `pong!`, `send_frame!`,
   `receive_frame!`.
@@ -38,8 +38,8 @@ Each call returns the updated connection: keep using the newest one.
   `Ws.close_and_wait!`, `Ws.drive!`, `Ws.messages`.
 - `WsClient.Errors = [Tcp(Str), Connect(Str), Entropy(Str)]`, the platform's
   tags; `WsClient.Error = Client.Error(WsClient.Errors)` is the whole error union.
-- `WsClient.dial`, the `Ws.Dial` feature record.
-- `WsClient.link!`, `WsClient.link_ops`, `WsClient.random_bytes!`: the parts.
+- `WsClient.dial`, the `Ws.Connect` feature record.
+- `WsClient.link!`, `WsClient.transport`, `WsClient.random_bytes!`: the parts.
 
 Every error row is `[Closed(Ws.Closure), Closing, ..e]`: `Closed` once the
 connection has ended, `Closing` from `send!` and the other senders after
@@ -55,7 +55,7 @@ messages on their way, then ends with `Closed`). `opened.extensions` is
   SSE transition; nothing keeps it across requests.
 - **`ws://` only.** The platform's Tcp has no TLS. `wss://` is `Refused`.
 - **30 s deadline per read.** `receive!` keeps waiting through it. `poll!`
-  returns `Idle` when 30 s pass with no message, and the connection keeps every
+  returns `TimedOut` when 30 s pass with no message, and the connection keeps every
   byte read so far, so nothing is lost.
 - **`StreamBusy`.** Two handlers using one connection at once get
   `Tcp("StreamBusy")`.
@@ -73,16 +73,9 @@ it needs a Unix `/dev/urandom` (Linux, macOS), not Windows.
 
 ## Changes
 
-### 0.0.2
-
-Depends on roc-websocket 0.0.2. Its error rows gain the shared `Closing` tag
-(`WsClient.Error` includes it), `send!` after `close!` gives `Closing` rather
-than `Closed`, and `Opened.extensions` is `[Reported(List(Str)), NotReported]`.
-The adapter's own code needed no change; the example and README show both.
-
 ### 0.0.1
 
-The first release: a client over `pf.Tcp`.
+The first release: a client over `pf.Tcp`, for roc-websocket 0.0.3.
 
 ## Checks
 
@@ -95,10 +88,10 @@ ROC=/path/to/roc scripts/all_tests.sh --e2e    # also a live run against tests/e
 `/slow` (`poll!` across the 30 s deadline) and `/surreal` (a JSON `ping` RPC to SurrealDB at
 `ws://127.0.0.1:8000/rpc`).
 
-The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.2` and in the
+The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.1` and in the
 release notes of each [release](https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases).
 
 ```sh
-ROC=/path/to/roc scripts/bundle.sh 0.0.2  # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/bundle.sh 0.0.1  # dist/<hash>.tar.zst and its release URL
 ROC=/path/to/roc scripts/test_bundle.sh   # checks the examples against the bundle
 ```

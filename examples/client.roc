@@ -3,14 +3,14 @@
 ##   GET /echo?port=9001  talks to an echo server on 127.0.0.1 (the test
 ##                        server in the repo README) and reports each step.
 ##   GET /slow            asks the echo server on 9001 to wait 35 s: the first
-##                        `poll!` gives Idle after 30 s, the second the reply.
+##                        `poll!` gives TimedOut after 30 s, the second the reply.
 ##   GET /surreal         sends a JSON `ping` RPC to SurrealDB at
 ##                        ws://127.0.0.1:8000/rpc and returns the reply.
 app [Context, program] {
 	bws_ws: "../src/main.roc",
 	http: "https://github.com/roc-lang/http/releases/download/1.0.0/6ZUwqYhCS8PU9Mo6MF7oV82ET2o7KYb57CLKDq4cq4sS.tar.zst",
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.2/8ruw5bazzn7Xrtd3nGUTv5aGRVg3tSskgxeWbyGYsFZL.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
 }
 
 import pf.Server
@@ -136,7 +136,7 @@ surreal! = |{}| {
 	Ok("subprotocol \"${opened.protocol}\"\nping reply: ${show(reply)}\nversion reply: ${show(version)}\nclosed: ${Str.inspect(closure)}\n")
 }
 
-## A reply after the platform's 30 s read deadline: `poll!` gives `Idle`, the
+## A reply after the platform's 30 s read deadline: `poll!` gives `TimedOut`, the
 ## connection keeps its state, and the next `poll!` gets the reply.
 slow! : {} => Try(Str, WsClient.Error)
 slow! = |{}| {
