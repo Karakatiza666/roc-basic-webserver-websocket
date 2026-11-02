@@ -1,14 +1,14 @@
 # roc-basic-webserver-websocket
 
 A WebSocket client for [basic-webserver](https://github.com/roc-lang/basic-webserver)
-0.19.0, built on [roc-websocket](https://github.com/Karakatiza666/roc-websocket). Use it inside a request
+0.20.0, built on [roc-websocket](https://github.com/Karakatiza666/roc-websocket). Use it inside a request
 handler to talk to a WebSocket server and answer over HTTP.
 
 ```roc
 app [Context, program] {
-	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
+	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.20.0/7dR2ewuEbpPQXTAZL3aH62weBwpNNjbCJtyyiRsufTNZ.tar.zst",
 	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
-	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/2eNi2D1w2VYayaNVFze7WS9gC3mzch5hovKwrBE1LLPt.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/AZvwBodinTMyUrV1ikMs9qicuYd3p7EXvFCYcZ6Zwn2A.tar.zst",
 }
 
 import ws.Ws

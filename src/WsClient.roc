@@ -5,7 +5,7 @@ import ws.Ws
 import ws.Client
 import ws.Handshake
 
-## WebSocket clients for basic-webserver 0.19.0, over `pf.Tcp` and the pure
+## WebSocket clients for basic-webserver 0.20.0, over `pf.Tcp` and the pure
 ## client of roc-websocket.
 ##
 ## Plain `ws://` only (the platform's Tcp has no TLS), and only within one
