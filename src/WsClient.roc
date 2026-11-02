@@ -66,8 +66,8 @@ WsClient :: [].{
 	ops = Client.ops({})
 
 	## The `Ws.Connect` feature record.
-	dial : Ws.Connect(WsClient.Conn, Client.Errors(WsClient.Errors), {})
-	dial = { connect!: WsClient.connect! }
+	connect : Ws.Connect(WsClient.Conn, Client.Errors(WsClient.Errors), {})
+	connect = { connect!: WsClient.connect! }
 
 	## The byte stream and randomness `Client.open!` needs.
 	transport : Client.Transport(WsClient.Link, WsClient.Errors)

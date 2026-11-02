@@ -7,8 +7,8 @@ handler to talk to a WebSocket server and answer over HTTP.
 ```roc
 app [Context, program] {
 	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.19.0/4KBAoiBazDfi9UF6e3BYKwon6rA8mnx3dbLMLKFzdEMw.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.3/FvsFHmH7m6LoMumXLxEHEfUoApGWdkgoFshfYEctaMNM.tar.zst",
-	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/5J8bFZVEmYbkWqq5YUQTeGGwHPq59vWnhm3rgtrfFRdv.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.4/FL5ikchJCgQXzACMnEovFpvUKG8uxCmGYy3zNvzbvFwd.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.1/2eNi2D1w2VYayaNVFze7WS9gC3mzch5hovKwrBE1LLPt.tar.zst",
 }
 
 import ws.Ws
@@ -38,7 +38,7 @@ Each call returns the updated connection: keep using the newest one.
   `Ws.close_and_wait!`, `Ws.drive!`, `Ws.messages`.
 - `WsClient.Errors = [Tcp(Str), Connect(Str), Entropy(Str)]`, the platform's
   tags; `WsClient.Error = Client.Error(WsClient.Errors)` is the whole error union.
-- `WsClient.dial`, the `Ws.Connect` feature record.
+- `WsClient.connect`, the `Ws.Connect` feature record.
 - `WsClient.link!`, `WsClient.transport`, `WsClient.random_bytes!`: the parts.
 
 Every error row is `[Closed(Ws.Closure), Closing, ..e]`: `Closed` once the
@@ -75,7 +75,7 @@ it needs a Unix `/dev/urandom` (Linux, macOS), not Windows.
 
 ### 0.0.1
 
-The first release: a client over `pf.Tcp`, for roc-websocket 0.0.3.
+The first release: a client over `pf.Tcp`, for roc-websocket 0.0.4.
 
 ## Checks
 
