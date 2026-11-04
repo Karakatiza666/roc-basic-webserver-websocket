@@ -13,9 +13,26 @@ import ws.Handshake
 ## server and no way to keep a connection across requests.
 ##
 ## Limits from the platform:
-## - Every Tcp read has a 30 s host deadline. `receive!` keeps waiting across
-##   it; `poll!` returns `TimedOut` when it passes with no message. The connection
-##   keeps every byte read, so a deadline never loses data.
+## - Every Tcp read has a 30 s host deadline that the app cannot change: the
+##   host sets it on the socket for each `read_up_to!`. The adapter turns it
+##   into the link's `TimedOut`, so it is not an error. `receive!` keeps
+##   waiting across it; `poll!` returns `TimedOut` when it passes with no
+##   bytes. The connection keeps every byte read, so a deadline never loses
+##   data. A write has a 30 s deadline as a whole and the connect too; hitting
+##   one is a network error (`Tcp("ErrorKind::TimedOut")`,
+##   `Connect("ErrorKind::TimedOut")`), and the connection should be dropped.
+## - A request handler has no total time limit of its own in the host (a
+##   handler that waits for 70 s on `receive!` answers after 70 s). What ends a
+##   long handler is outside the app: the HTTP caller's or a proxy's timeout,
+##   and the host's shutdown drain (30 s by default), which forces the exit.
+##   A WebSocket client inside a request cannot outlive them.
+## - There is no `receive_within!` (`Ws.ReceiveWithin`), and it is not added: no
+##   read can be held under 30 s, and the only clock is wall time
+##   (`UnixTime`), so a deadline of 3 s could be missed by up to 27 s.
+##   `poll!` (`Ws.Poll`) is an idle deadline: any frame, a Ping included,
+##   restarts it, so a peer that pings keeps it from ever timing out. An app
+##   that needs a deadline for data messages needs another platform (basic-cli
+##   has `receive_within!`, and so does Cloudflare Workers).
 ## - One connection used by two handlers at once gives `Tcp("StreamBusy")`.
 ## - A read materializes at most 8 MiB, so a frame over 8 MiB arrives in
 ##   several reads (handled), and at most 64 Tcp streams are open at once.

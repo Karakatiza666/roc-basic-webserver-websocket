@@ -5,6 +5,9 @@
 set -euo pipefail
 ROC="${ROC:-roc}"
 cd "$(dirname "$0")/.."
+# Keep the roc cache and the build output inside the repository.
+export ROC_CACHE_DIR="${ROC_CACHE_DIR:-$PWD/.cache/roc}"
+mkdir -p "$ROC_CACHE_DIR"
 
 "$ROC" version
 "$ROC" fmt --check src examples
@@ -14,7 +17,8 @@ for f in examples/*.roc; do
 done
 
 if [[ "${1:-}" == "--e2e" ]]; then
-	out="$(mktemp -d)"
+	out="$PWD/.cache/e2e"
+	mkdir -p "$out"
 	"$ROC" build examples/client.roc --output="$out/client"
 	python3 -I tests/echo_server.py 9001 2>"$out/server.log" &
 	server=$!
