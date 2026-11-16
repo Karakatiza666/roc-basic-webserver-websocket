@@ -6,9 +6,9 @@ handler to talk to a WebSocket server and answer over HTTP.
 
 ```roc
 app [Context, program] {
-	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.21.0/4viZsnWjdYsyH4Q87ESFAwM5c55Hnc15nAGW1UwzWpFU.tar.zst",
-	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.6/6rcitHh7bVV7D4A2aubD6H6yLHUgtXLi6jRwxjomSwVv.tar.zst",
-	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.3/BjBcDpMFYd2ybt1xpiKiSHf2AgrnRnT6qRdFe2bQ2fgL.tar.zst",
+	pf: platform "https://github.com/roc-lang/basic-webserver/releases/download/0.22.0/BM2BUXA8mwbcoKPUfRV8cLtsUdnsSBPwjNLPRUJQAQ7Q.tar.zst",
+	ws: "https://github.com/Karakatiza666/roc-websocket/releases/download/0.0.7/EBNZjRmQ5PZiJAE5UMUFePtQFdb1FnsQX1qagVuiCwM9.tar.zst",
+	bws_ws: "https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases/download/0.0.4/CVdw532jo8EfTqYFZjfGismeWHjfuVPTfj6ofaKGcAmU.tar.zst",
 }
 
 import ws.Ws
@@ -90,6 +90,21 @@ it needs a Unix `/dev/urandom` (Linux, macOS), not Windows.
 
 ## Changes
 
+### 0.0.4
+
+No API changes.
+
+| Dependency | Before | Now |
+| --- | --- | --- |
+| basic-webserver | 0.21.0 | 0.22.0 |
+| roc-websocket | 0.0.6 | 0.0.7 |
+| Roc (`.roc-version`) | `nightly-2026-11-07-ad3a5d2` | `nightly-2026-11-15-f25da45` |
+
+basic-webserver 0.22.0 is built on Roc `nightly-2026-11-15-f25da45`, and it
+gives no warnings on that nightly. Every adapter of a program must use the
+same roc-websocket version. roc-basic-cli-websocket 0.0.5 also uses
+roc-websocket 0.0.7.
+
 ### 0.0.3
 
 No API changes.
@@ -134,10 +149,10 @@ ROC=/path/to/roc scripts/all_tests.sh --e2e    # also a live run against tests/e
 `/slow` (`poll!` across the 30 s deadline) and `/surreal` (a JSON `ping` RPC to SurrealDB at
 `ws://127.0.0.1:8000/rpc`).
 
-The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.3` and in the
+The release URL (`<hash>` above) is printed by `scripts/bundle.sh 0.0.4` and in the
 release notes of each [release](https://github.com/Karakatiza666/roc-basic-webserver-websocket/releases).
 
 ```sh
-ROC=/path/to/roc scripts/bundle.sh 0.0.3  # dist/<hash>.tar.zst and its release URL
+ROC=/path/to/roc scripts/bundle.sh 0.0.4  # dist/<hash>.tar.zst and its release URL
 ROC=/path/to/roc scripts/test_bundle.sh   # checks the examples against the bundle
 ```
